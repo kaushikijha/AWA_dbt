@@ -1,0 +1,86 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    CUSTOMER:
+      type: "table-input"
+      parameters:
+        componentName: "CUSTOMER"
+        database: "PRACTICE"
+        schema: "PRACTICESCHEMA"
+        targetTable: "CUSTOMER"
+        columnNames:
+        - "CUSTOMERID"
+        - "FIRSTNAME"
+        - "LASTNAME"
+        - "EMAIL"
+        - "PHONE"
+        - "CITY"
+        - "STATE"
+        - "COUNTRY"
+        - "JOINDATE"
+        - "STATUS"
+        timeOffset:
+    Calculator:
+      type: "calculator"
+      sources:
+      - "CUSTOMER"
+      parameters:
+        componentName: "Calculator"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "CONCAT(\"FIRSTNAME\",' ',\"LASTNAME\")"
+          - "FULL_NAME"
+        - - "YEAR(\"JOINDATE\")"
+          - "YEAR_JOINED_DATE"
+        - - "MONTH(\"JOINDATE\")"
+          - "MONTH"
+        - - "DAY(\"JOINDATE\")"
+          - "DAY"
+    Aggregate:
+      type: "aggregate"
+      sources:
+      - "Calculator"
+      parameters:
+        componentName: "Aggregate"
+        groupings:
+        - "YEAR_JOINED_DATE"
+        - "MONTH"
+        aggregations:
+        - - "FULL_NAME"
+          - "Count Distinct"
+        groupingType: "Group By"
+    Rename:
+      type: "rename"
+      sources:
+      - "Aggregate"
+      parameters:
+        componentName: "Rename"
+        columnMapping:
+        - - "count_distinct_FULL_NAME"
+          - "CUSTOMER_COUNT"
+        - - "YEAR_JOINED_DATE"
+          - "YEAR_JOINED_DATE"
+        includeInputColumns: "No"
+design:
+  components:
+    CUSTOMER:
+      position:
+        x: -1130
+        "y": -80
+      tempMetlId: 1
+    Calculator:
+      position:
+        x: -1070
+        "y": -80
+      tempMetlId: 2
+    Aggregate:
+      position:
+        x: -1000
+        "y": -80
+      tempMetlId: 3
+    Rename:
+      position:
+        x: -930
+        "y": -80
+      tempMetlId: 4
