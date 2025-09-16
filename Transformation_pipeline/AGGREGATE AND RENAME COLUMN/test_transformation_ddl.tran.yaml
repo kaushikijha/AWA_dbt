@@ -1,0 +1,267 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  metadata:
+    description: "This will be having all the transformation jobs for DDL"
+  components:
+    BANK TXNS INPUT TABLE:
+      type: "table-input"
+      parameters:
+        componentName: "BANK TXNS INPUT TABLE"
+        database: "PRACTICE"
+        schema: "PRACTICESCHEMA"
+        targetTable: "TRANSACTIONS"
+        columnNames:
+        - "TRANS_ID"
+        - "ACCOUNT_ID"
+        - "TXN_DATE"
+        - "TXN_TYPE"
+        - "TXN_OPERATION"
+        - "AMOUNT"
+        - "BALANCE"
+        - "PURPOSE"
+        - "BANK"
+        - "TXN_ACCOUNT"
+        - "ACCOUNT_PARTNER_ID"
+        timeOffset: ""
+    Aggregate ACCOUNT_ID:
+      type: "aggregate"
+      sources:
+      - "BANK TXNS INPUT TABLE"
+      parameters:
+        componentName: "Aggregate ACCOUNT_ID"
+        groupings:
+        - "ACCOUNT_ID"
+        aggregations:
+        - - "TRANS_ID"
+          - "Count Distinct"
+        - - "BALANCE"
+          - "Sum"
+        groupingType: "Group By"
+    Aggregate TXN_YR:
+      type: "aggregate"
+      sources:
+      - "Calculate TXN_YEAR"
+      parameters:
+        componentName: "Aggregate TXN_YR"
+        groupings:
+        - "TXN_YEAR"
+        aggregations:
+        - - "TRANS_ID"
+          - "Count Distinct"
+        - - "BALANCE"
+          - "Sum"
+        groupingType: "Group By"
+    Calculate TXN_YEAR:
+      type: "calculator"
+      sources:
+      - "BANK TXNS INPUT TABLE"
+      parameters:
+        componentName: "Calculate TXN_YEAR"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "YEAR(\"TXN_DATE\")"
+          - "TXN_YEAR"
+    Convert Type Date To TimeStamp:
+      type: "convert-type"
+      sources:
+      - "BANK TXNS INPUT TABLE"
+      parameters:
+        componentName: "Convert Type Date To TimeStamp"
+        conversions:
+        - - "TXN_DATE"
+          - "TIMESTAMP"
+          - ""
+          - ""
+        - - "BALANCE"
+          - "FLOAT"
+          - "10"
+          - "2"
+    Aggregate  BANK:
+      type: "aggregate"
+      sources:
+      - "Calculate TXN_YEAR_BANK"
+      parameters:
+        componentName: "Aggregate  BANK"
+        groupings:
+        - "BANK"
+        - "TXN_YEAR"
+        - "TXN_QTR"
+        - "TXN_MNTH"
+        aggregations:
+        - - "TRANS_ID"
+          - "Count Distinct"
+        - - "BALANCE"
+          - "Sum"
+        groupingType: "Group By"
+    Calculate TXN_YEAR_BANK:
+      type: "calculator"
+      sources:
+      - "BANK TXNS INPUT TABLE"
+      parameters:
+        componentName: "Calculate TXN_YEAR_BANK"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "YEAR(\"TXN_DATE\")"
+          - "TXN_YEAR"
+        - - "QUARTER(\"TXN_DATE\")"
+          - "TXN_QTR"
+        - - "MONTH(\"TXN_DATE\")"
+          - "TXN_MNTH"
+    Rename Components:
+      type: "rename"
+      sources:
+      - "Cast"
+      parameters:
+        componentName: "Rename Components"
+        columnMapping:
+        - - "BANK"
+          - "BANK"
+        - - "TXN_YEAR"
+          - "YEAR"
+        - - "count_distinct_TRANS_ID"
+          - "Total Txns"
+        - - "ROUND_BALANCE"
+          - "Total Balance"
+        includeInputColumns: "No"
+    Cast:
+      type: "calculator"
+      sources:
+      - "Aggregate  BANK"
+      parameters:
+        componentName: "Cast"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "CAST(CAST(\"sum_BALANCE\"  AS NUMERIC(16,0)) AS bigint)"
+          - "ROUND_BALANCE"
+    Next Day Balance(Lead0:
+      type: "lead-lag"
+      sources:
+      - "BANK TXNS INPUT TABLE"
+      parameters:
+        componentName: "Next Day Balance(Lead0"
+        includeInputColumns: "Yes"
+        partitionData:
+        - "ACCOUNT_ID"
+        orderingsWithinPartitions:
+        - - "TXN_DATE"
+          - "Asc"
+        functions:
+        - - "Lead"
+          - "BALANCE"
+          - "1"
+          - "NEXT_DAY_BALANCE"
+        ignoreNulls: "Yes"
+    Previous Day Balance(Lag):
+      type: "lead-lag"
+      sources:
+      - "BANK TXNS INPUT TABLE"
+      parameters:
+        componentName: "Previous Day Balance(Lag)"
+        includeInputColumns: "Yes"
+        partitionData:
+        - "ACCOUNT_ID"
+        orderingsWithinPartitions:
+        - - "TXN_DATE"
+          - "Desc"
+        functions:
+        - - "Lag"
+          - "BALANCE"
+          - "1"
+          - "PREV_DAY_BALANCE"
+        ignoreNulls: "Yes"
+    Rename:
+      type: "rename"
+      sources:
+      - "Aggregate ACCOUNT_ID"
+      parameters:
+        componentName: "Rename"
+        columnMapping:
+        - - "ACCOUNT_ID"
+          - "Account_Id"
+        - - "count_distinct_TRANS_ID"
+          - "Distinct_Trans_Id"
+        - - "sum_BALANCE"
+          - "Total_Balance"
+        includeInputColumns: "No"
+    Create View:
+      type: "create-view"
+      sources:
+      - "Rename Components"
+      parameters:
+        componentName: "Create View"
+        database: "PRACTICE"
+        schema: "PRACTICESCHEMA"
+        viewName: "Bank_Aggregate"
+        secureView: "Yes"
+        viewType: "Standard"
+      postProcessing:
+        updateOutputMessage:
+        updateScalarVariables:
+design:
+  components:
+    BANK TXNS INPUT TABLE:
+      position:
+        x: -1344
+        "y": -272
+      tempMetlId: 5754
+    Aggregate ACCOUNT_ID:
+      position:
+        x: -1120
+        "y": -480
+      tempMetlId: 8142
+    Aggregate TXN_YR:
+      position:
+        x: -832
+        "y": -384
+      tempMetlId: 8253
+    Calculate TXN_YEAR:
+      position:
+        x: -1040
+        "y": -384
+      tempMetlId: 8323
+    Convert Type Date To TimeStamp:
+      position:
+        x: -912
+        "y": -272
+      tempMetlId: 8409
+    Aggregate  BANK:
+      position:
+        x: -864
+        "y": -160
+      tempMetlId: 8501
+    Calculate TXN_YEAR_BANK:
+      position:
+        x: -1152
+        "y": -160
+      tempMetlId: 8586
+    Rename Components:
+      position:
+        x: -496
+        "y": -160
+      tempMetlId: 8666
+    Cast:
+      position:
+        x: -672
+        "y": -160
+      tempMetlId: 8764
+    Next Day Balance(Lead0:
+      position:
+        x: -1536
+        "y": 0
+      tempMetlId: 9072
+    Previous Day Balance(Lag):
+      position:
+        x: -1152
+        "y": 16
+      tempMetlId: 9204
+    Rename:
+      position:
+        x: -960
+        "y": -480
+      tempMetlId: 9205
+    Create View:
+      position:
+        x: -336
+        "y": -160
+      tempMetlId: 9206
